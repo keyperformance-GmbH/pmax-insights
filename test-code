@@ -1,0 +1,40 @@
+const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+const STATUS_ENABLED = 'ENABLED';
+
+function main() {
+  const ss = SpreadsheetApp.openByUrl(''); 
+  const zombieDays = 366;
+  const prodDays = 181;
+
+  const timeZone = AdsApp.currentAccount().getTimeZone();
+  const now = new Date();
+  const from = new Date(now.getTime() - zombieDays * MILLIS_PER_DAY);
+  const prod180 = new Date(now.getTime() - prodDays * MILLIS_PER_DAY);
+  const to = new Date(now.getTime() - 1 * MILLIS_PER_DAY);
+
+  const zombieRange = buildDateRange(from, to, timeZone);
+  const prodDate = buildDateRange(prod180, to, timeZone);
+
+  const queries = {
+    'r_camp': buildQuery(['segments.date', 'campaign.name', 'metrics.cost_micros', /*...*/], 'campaign', 'segments.date DURING LAST_30_DAYS AND campaign.advertising_channel_type = "PERFORMANCE_MAX"', 'ORDER BY campaign.name'),
+    'r_dv': buildQuery([/*fields*/], 'campaign', /*conditions*/, /*order*/),
+    // Add more queries here
+  };
+
+  Object.keys(queries).forEach(sheetName => {
+    runReport(queries[sheetName], ss.getSheetByName(sheetName));
+  });
+}
+
+function buildDateRange(from, to, timeZone) {
+  return `segments.date BETWEEN "${Utilities.formatDate(from, timeZone, 'yyyy-MM-dd')}" AND "${Utilities.formatDate(to, timeZone, 'yyyy-MM-dd')}"`;
+}
+
+function buildQuery(fields, from, conditions, order) {
+  return `SELECT ${fields.join(',')} FROM ${from} WHERE ${conditions} ${order}`;
+}
+
+function runReport(q, sh) {
+  const report = AdsApp.report(q);
+  report.exportToSheet(sh);
+}
